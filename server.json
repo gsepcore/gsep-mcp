@@ -1,0 +1,50 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.LuisvelMarketer/gsep-mcp",
+  "description": "AI agent security via MCP: C3 firewall, C4 immune system, C5 action guard, self-evolving prompts.",
+  "repository": {
+    "url": "https://github.com/gsepcore/gsep-mcp",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@gsep/mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "description": "Anthropic API key (use this OR OPENAI_API_KEY OR OLLAMA_HOST)",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "description": "OpenAI API key (use this OR ANTHROPIC_API_KEY OR OLLAMA_HOST)",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "OLLAMA_HOST",
+          "description": "Ollama server URL for local models (e.g. http://localhost:11434)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "GSEP_PRESET",
+          "description": "Intelligence preset: minimal, standard, conscious, or full (default: full)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}
