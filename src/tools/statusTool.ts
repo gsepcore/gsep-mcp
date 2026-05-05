@@ -45,7 +45,6 @@ export async function statusHandler(
         fitness: status.fitness ?? null,
         drift: status.drift ?? null,
         evolution: status.evolution ?? null,
-        security: status.security ?? null,
         chromosomes: {
           C0: '🔒 Immutable DNA — SHA-256 protected',
           C1: 'Operative Genes — ' + (status.generation ? `generation ${status.generation}` : 'evolving'),

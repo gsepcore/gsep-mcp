@@ -26,7 +26,7 @@ export async function chatHandler(
     content: [
       {
         type: 'text' as const,
-        text: typeof result === 'string' ? result : result.response ?? String(result),
+        text: typeof result === 'string' ? result : result.content ?? String(result),
       },
       {
         type: 'text' as const,
@@ -37,7 +37,6 @@ export async function chatHandler(
             fitness: gsep.fitness ?? null,
             drift: gsep.drift ?? null,
             evolution: gsep.evolution ?? null,
-            security: gsep.security ?? null,
             interaction: gsep.interactionNumber ?? null,
           },
         }, null, 2),
