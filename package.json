@@ -1,0 +1,51 @@
+{
+  "name": "@gsep/mcp",
+  "version": "1.0.0",
+  "description": "GSEP MCP Server — Universal AI agent security and evolution layer. C3+C4+C5 protection for any LLM via Model Context Protocol.",
+  "keywords": ["mcp", "gsep", "ai-safety", "prompt-injection", "llm-security", "model-context-protocol", "ai-agent"],
+  "author": "Luis Alfredo Velasquez Duran <contact@gsepcore.com>",
+  "license": "MIT",
+  "homepage": "https://gsepcore.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gsepcore/gsep-mcp.git"
+  },
+  "type": "module",
+  "bin": {
+    "gsep-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "start:http": "node dist/index.js --http",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@gsep/core": "^1.0.4",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "fastify": "^5.3.2",
+    "@fastify/cors": "^10.0.2",
+    "zod": "^3.23.8",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "tsx": "^4.19.1",
+    "vitest": "^3.2.4",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
