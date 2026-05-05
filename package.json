@@ -56,5 +56,5 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "mcpName": "io.github.LuisvelMarketer/gsep-mcp"
+  "mcpName": "io.github.gsepcore/gsep-mcp"
 }

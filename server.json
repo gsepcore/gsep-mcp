@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.LuisvelMarketer/gsep-mcp",
+  "name": "io.github.gsepcore/gsep-mcp",
   "description": "AI agent security via MCP: C3 firewall, C4 immune system, C5 action guard, self-evolving prompts.",
   "repository": {
     "url": "https://github.com/gsepcore/gsep-mcp",
