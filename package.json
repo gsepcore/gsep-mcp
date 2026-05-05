@@ -1,8 +1,16 @@
 {
   "name": "@gsep/mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "GSEP MCP Server — Universal AI agent security and evolution layer. C3+C4+C5 protection for any LLM via Model Context Protocol.",
-  "keywords": ["mcp", "gsep", "ai-safety", "prompt-injection", "llm-security", "model-context-protocol", "ai-agent"],
+  "keywords": [
+    "mcp",
+    "gsep",
+    "ai-safety",
+    "prompt-injection",
+    "llm-security",
+    "model-context-protocol",
+    "ai-agent"
+  ],
   "author": "Luis Alfredo Velasquez Duran <contact@gsepcore.com>",
   "license": "MIT",
   "homepage": "https://gsepcore.com",
