@@ -12,4 +12,4 @@ ENV GSEP_PRESET=full
 
 EXPOSE 3100
 
-CMD sh -c "GSEP_HTTP_PORT=${PORT:-3100} gsep-mcp --http"
+CMD sh -c "GSEP_HTTP_PORT=${PORT} gsep-mcp --http"
