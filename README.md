@@ -90,6 +90,8 @@ MCP endpoint:  http://localhost:3100/mcp
 Health check:  http://localhost:3100/health
 ```
 
+> **HTTP session model (v1.0.3+):** The server maintains one persistent SSE session per client. Send your `initialize` request first — the server returns an `mcp-session-id` header. Include that header in all subsequent requests so GSEP routes them to the correct session. Creating a new connection per request will not work.
+
 ### Ollama (local models — no API key needed)
 
 ```bash
@@ -286,3 +288,14 @@ Built on **GSEP** — Genomic Self-Evolving Prompts. Patent pending (US, EU, PCT
 MIT License — © 2026 Luis Alfredo Velasquez Duran
 
 </div>
+
+---
+
+## Changelog
+
+### v1.0.3
+- **fix(http):** Persist session transport across requests — fixes tool call timeout in HTTP mode. Previously a new `StreamableHTTPServerTransport` was created per request, destroying session state. Now uses a sessions Map keyed by `mcp-session-id`.
+
+### v1.0.2
+- **feat:** Initial public release — 6 MCP tools, stdio + HTTP transports, C3/C4/C5 protection, self-evolving prompts.
+- **feat:** Published to official MCP Registry (`io.github.gsepcore/gsep-mcp`).
