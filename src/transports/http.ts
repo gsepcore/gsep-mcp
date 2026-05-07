@@ -5,7 +5,7 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { GSEPMcpConfig } from '../config.js';
 
-export async function startHttp(server: McpServer, config: GSEPMcpConfig) {
+export async function startHttp(createServer: () => McpServer, config: GSEPMcpConfig) {
   const app = Fastify({ logger: config.logLevel === 'debug' });
 
   await app.register(cors, { origin: true });
@@ -56,6 +56,8 @@ export async function startHttp(server: McpServer, config: GSEPMcpConfig) {
       }
     };
 
+    // Fresh McpServer per session — prevents "Already connected to a transport" error
+    const server = createServer();
     await server.connect(transport);
     reply.hijack();
     await transport.handleRequest(req.raw, reply.raw, req.body);
@@ -65,7 +67,7 @@ export async function startHttp(server: McpServer, config: GSEPMcpConfig) {
   app.get('/health', async () => ({
     status: 'ok',
     server: 'gsep-mcp',
-    version: '1.0.2',
+    version: '1.0.5',
     sessions: sessions.size,
     tools: ['gsep_chat', 'gsep_scan_input', 'gsep_scan_output', 'gsep_scan_actions', 'gsep_get_status', 'gsep_record_feedback'],
     provider: config.llmProvider,
@@ -86,7 +88,6 @@ export async function startHttp(server: McpServer, config: GSEPMcpConfig) {
       await transport.close();
     }
     await app.close();
-    await server.close();
     process.exit(0);
   });
 }

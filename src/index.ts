@@ -6,13 +6,14 @@ import { startHttp } from './transports/http.js';
 
 async function main() {
   const config = loadConfig();
-  const server = createMcpServer(config);
   const useHttp = process.argv.includes('--http') || process.env.GSEP_TRANSPORT === 'http';
 
   if (useHttp) {
-    await startHttp(server, config);
+    // HTTP: factory function — fresh McpServer per session to avoid "Already connected" error
+    await startHttp(() => createMcpServer(config), config);
   } else {
-    await startStdio(server, config);
+    // stdio: single connection, single server instance is fine
+    await startStdio(createMcpServer(config), config);
   }
 }
 
