@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 
 export interface GSEPMcpConfig {
-  llmProvider: 'anthropic' | 'openai' | 'ollama';
+  llmProvider: 'anthropic' | 'openai' | 'ollama' | 'none';
   apiKey?: string;
   model?: string;
   storagePath: string;
@@ -14,10 +14,8 @@ export interface GSEPMcpConfig {
 }
 
 export function loadConfig(): GSEPMcpConfig {
-  const provider = detectProvider();
-
   return {
-    llmProvider: provider,
+    llmProvider: detectProvider(),
     apiKey: process.env.ANTHROPIC_API_KEY ?? process.env.OPENAI_API_KEY,
     model: process.env.GSEP_MODEL,
     storagePath: process.env.GSEP_STORAGE_PATH ?? path.join(os.homedir(), '.gsep-mcp'),
@@ -32,10 +30,6 @@ function detectProvider(): GSEPMcpConfig['llmProvider'] {
   if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
   if (process.env.OPENAI_API_KEY) return 'openai';
   if (process.env.OLLAMA_HOST || process.env.OLLAMA_BASE_URL) return 'ollama';
-
-  throw new Error(
-    '❌ No LLM provider configured.\n' +
-    'Set one of: ANTHROPIC_API_KEY, OPENAI_API_KEY, or OLLAMA_HOST\n' +
-    'Example: ANTHROPIC_API_KEY=sk-ant-... npx gsep-mcp'
-  );
+  // No LLM configured — server starts anyway, gsep_chat will fail gracefully
+  return 'none';
 }

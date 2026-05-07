@@ -9,6 +9,13 @@ export async function getGenome(genomeId: string, config: GSEPMcpConfig) {
     return instances.get(genomeId)!;
   }
 
+  if (config.llmProvider === 'none') {
+    throw new Error(
+      'No LLM provider configured for this genome. ' +
+      'Pass your API key when calling gsep_chat: { genome_id, message, api_key: "sk-ant-..." }'
+    );
+  }
+
   const storagePath = path.join(config.storagePath, genomeId, 'gsep.sqlite');
 
   const genome = await GSEP.quickStart({

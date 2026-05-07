@@ -7,13 +7,25 @@ export const chatSchema = {
   message: z.string().describe('User message to send through the full GSEP pipeline'),
   user_id: z.string().optional().describe('User identifier for personalization and per-user epigenomes'),
   task_type: z.string().optional().describe('Task type hint (e.g. "support", "coding", "general")'),
+  api_key: z.string().optional().describe('Your LLM API key (ANTHROPIC_API_KEY or OPENAI_API_KEY). Required if not set as server env var.'),
+  llm_provider: z.enum(['anthropic', 'openai', 'ollama']).optional().describe('LLM provider to use. Auto-detected from api_key if omitted.'),
 };
 
 export async function chatHandler(
   args: z.infer<z.ZodObject<typeof chatSchema>>,
   config: GSEPMcpConfig
 ) {
-  const genome = await getGenome(args.genome_id, config);
+  // Allow user to pass their own API key at call time
+  const effectiveConfig: GSEPMcpConfig = { ...config };
+
+  if (args.api_key) {
+    const provider = args.llm_provider ??
+      (args.api_key.startsWith('sk-ant') ? 'anthropic' : 'openai');
+    effectiveConfig.llmProvider = provider;
+    effectiveConfig.apiKey = args.api_key;
+  }
+
+  const genome = await getGenome(args.genome_id, effectiveConfig);
 
   const result = await genome.chatWithStatus(args.message, {
     userId: args.user_id ?? 'mcp-user',
