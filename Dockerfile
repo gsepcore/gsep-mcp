@@ -4,7 +4,7 @@ FROM node:20-alpine
 RUN apk add --no-cache python3 make g++
 
 # Install GSEP-MCP globally (pre-built, no runtime download)
-RUN npm install -g @gsep/mcp
+RUN npm install -g @gsep/mcp@1.0.4
 
 ENV GSEP_HTTP_HOST=0.0.0.0
 ENV GSEP_TRANSPORT=http
