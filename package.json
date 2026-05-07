@@ -1,6 +1,6 @@
 {
   "name": "@gsep/mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "GSEP MCP Server — Universal AI agent security and evolution layer. C3+C4+C5 protection for any LLM via Model Context Protocol.",
   "keywords": [
     "mcp",
