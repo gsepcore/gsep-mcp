@@ -53,9 +53,17 @@ OTHER MCP SERVERS          GSEP-MCP
 
 ---
 
-## Install in 2 Minutes
+## Integrations
 
-### Claude Desktop
+GSEP-MCP supports two transports: **stdio** (for desktop apps and IDEs) and **HTTP** (for servers, backends, and automation platforms). Pick the one that matches your environment.
+
+---
+
+### stdio Transport (Desktop / IDE)
+
+stdio is the simplest transport. The MCP client launches GSEP-MCP as a subprocess and communicates via stdin/stdout. No port, no server, no network.
+
+#### Claude Desktop
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -73,29 +81,241 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop. Done — your agent is now protected.
+Restart Claude Desktop. Your agent is now protected.
 
-### Cursor / Windsurf / Cline
+#### Cursor
 
-Add the same config to your IDE's MCP settings file. GSEP-MCP works with any client that supports the MCP protocol.
+Add to `.cursor/mcp.json` in your project (or global `~/.cursor/mcp.json`):
 
-### n8n / Make / Cloud Platforms (HTTP mode)
+```json
+{
+  "mcpServers": {
+    "gsep": {
+      "command": "npx",
+      "args": ["-y", "@gsep/mcp"],
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-..."
+      }
+    }
+  }
+}
+```
+
+#### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "gsep": {
+      "command": "npx",
+      "args": ["-y", "@gsep/mcp"],
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-..."
+      }
+    }
+  }
+}
+```
+
+#### Cline / Continue / Any MCP-compatible IDE
+
+Add the same config block to your IDE's MCP settings file. GSEP-MCP is compatible with any client that implements the MCP protocol.
+
+#### OpenClaw / Genome
+
+```json
+{
+  "mcpServers": {
+    "gsep": {
+      "command": "npx",
+      "args": ["-y", "@gsep/mcp"],
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-...",
+        "GSEP_PRESET": "full"
+      }
+    }
+  }
+}
+```
+
+#### With Ollama (local models — no API key needed)
+
+```json
+{
+  "mcpServers": {
+    "gsep": {
+      "command": "npx",
+      "args": ["-y", "@gsep/mcp"],
+      "env": {
+        "OLLAMA_HOST": "http://localhost:11434",
+        "GSEP_PRESET": "full"
+      }
+    }
+  }
+}
+```
+
+---
+
+### HTTP Transport (Servers / Backends / Automation)
+
+HTTP mode runs GSEP-MCP as a standalone server. Use this when your agent lives in a backend, a cloud service, or an automation platform.
+
+**Start the server:**
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-... npx @gsep/mcp --http
+# MCP endpoint:  http://localhost:3100/mcp
+# Health check:  http://localhost:3100/health
 ```
 
-```
-MCP endpoint:  http://localhost:3100/mcp
-Health check:  http://localhost:3100/health
-```
+> **Session model (v1.0.3+):** Send `initialize` first — the server returns an `mcp-session-id` header. Include that header in all subsequent requests. Do not open a new connection per call.
 
-> **HTTP session model (v1.0.3+):** The server maintains one persistent SSE session per client. Send your `initialize` request first — the server returns an `mcp-session-id` header. Include that header in all subsequent requests so GSEP routes them to the correct session. Creating a new connection per request will not work.
+#### n8n
 
-### Ollama (local models — no API key needed)
+1. Start GSEP-MCP server (locally or on Railway/Render)
+2. In your n8n workflow add an **HTTP Request** node:
+   - **Method:** POST
+   - **URL:** `http://your-gsep-server:3100/mcp`
+   - **Body (JSON):**
+   ```json
+   {
+     "jsonrpc": "2.0",
+     "id": 1,
+     "method": "tools/call",
+     "params": {
+       "name": "gsep_chat",
+       "arguments": {
+         "genome_id": "n8n-agent",
+         "message": "{{ $json.message }}",
+         "user_id": "{{ $json.userId }}"
+       }
+     }
+   }
+   ```
+   - **Header:** `mcp-session-id: {{ $json.sessionId }}`
+
+> For n8n: initialize once at workflow start, store the `mcp-session-id`, and reuse it across nodes.
+
+#### Make (Integromat)
+
+Use the **HTTP → Make a request** module pointing to `http://your-gsep-server:3100/mcp` with the same JSON-RPC 2.0 payload above.
+
+#### Python (Django / FastAPI / Celery)
+
+Install the MCP Python SDK:
 
 ```bash
-OLLAMA_HOST=http://localhost:11434 npx @gsep/mcp
+pip install mcp httpx
+```
+
+```python
+# gsep_client.py
+import asyncio
+from mcp.client.streamable_http import streamablehttp_client
+from mcp import ClientSession
+
+GSEP_URL = "http://localhost:3100/mcp"
+
+async def gsep_chat(genome_id: str, message: str, user_id: str = "user") -> dict:
+    async with streamablehttp_client(GSEP_URL) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            result = await session.call_tool("gsep_chat", {
+                "genome_id": genome_id,
+                "message": message,
+                "user_id": user_id,
+            })
+            return result
+
+async def gsep_scan_input(content: str) -> dict:
+    async with streamablehttp_client(GSEP_URL) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            result = await session.call_tool("gsep_scan_input", {
+                "content": content,
+                "source": "user",
+            })
+            return result
+```
+
+**In a Celery task:**
+
+```python
+# tasks.py
+from celery import shared_task
+import asyncio
+from .gsep_client import gsep_chat, gsep_scan_input
+
+@shared_task
+def process_message(genome_id: str, message: str, user_id: str):
+    scan = asyncio.run(gsep_scan_input(message))
+    if scan.get("blocked"):
+        return {"blocked": True, "reason": scan.get("detections")}
+    return asyncio.run(gsep_chat(genome_id, message, user_id))
+```
+
+#### Node.js / TypeScript Backend
+
+```bash
+npm install @modelcontextprotocol/sdk
+```
+
+```typescript
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+
+const client = new Client({ name: 'my-backend', version: '1.0.0' });
+const transport = new StreamableHTTPClientTransport(new URL('http://localhost:3100/mcp'));
+
+await client.connect(transport);
+
+const result = await client.callTool('gsep_chat', {
+  genome_id: 'my-agent',
+  message: userMessage,
+  user_id: userId,
+});
+
+console.log(result);
+```
+
+#### Deploy on Railway
+
+1. Create a new Railway service
+2. Set start command: `npx @gsep/mcp --http`
+3. Set environment variables:
+```
+ANTHROPIC_API_KEY=sk-ant-...
+GSEP_PRESET=full
+GSEP_HTTP_HOST=0.0.0.0
+GSEP_HTTP_PORT=$PORT
+```
+4. Your Django/Celery service connects via Railway internal networking:
+```python
+GSEP_URL = "http://gsep-mcp.railway.internal:$PORT/mcp"
+```
+
+#### Generic HTTP (any language)
+
+Any HTTP client that supports JSON-RPC 2.0 works. The pattern is always:
+
+```
+# Step 1 — Initialize (once per session)
+POST /mcp
+Content-Type: application/json
+
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"my-client","version":"1.0.0"}}}
+
+# Response includes header: mcp-session-id: <uuid>
+
+# Step 2 — Call any tool (reuse session ID)
+POST /mcp
+Content-Type: application/json
+mcp-session-id: <uuid from step 1>
+
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"gsep_chat","arguments":{"genome_id":"my-agent","message":"Hello","user_id":"user-1"}}}
 ```
 
 ---
