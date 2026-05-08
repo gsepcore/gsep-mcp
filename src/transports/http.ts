@@ -5,6 +5,37 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { GSEPMcpConfig } from '../config.js';
 
+const VALIDATE_URL = 'https://gsep-mcp-api.luiggistattoo.workers.dev/validate';
+
+// In-memory cache to avoid calling the Worker on every request
+const keyCache = new Map<string, { valid: boolean; email: string; plan: string; cachedAt: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function validateKey(key: string): Promise<{ valid: boolean; email?: string; plan?: string }> {
+  if (!key) return { valid: false };
+
+  // Check cache first
+  const cached = keyCache.get(key);
+  if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
+    return cached;
+  }
+
+  try {
+    const res = await fetch(`${VALIDATE_URL}?key=${encodeURIComponent(key)}`);
+    const data = await res.json() as any;
+
+    if (data.valid) {
+      keyCache.set(key, { valid: true, email: data.email, plan: data.plan, cachedAt: Date.now() });
+    }
+
+    return data;
+  } catch {
+    // If validation service is down, fail open (let request through) to avoid outage
+    console.error('[GSEP-MCP] Warning: key validation service unreachable — allowing request');
+    return { valid: true };
+  }
+}
+
 export async function startHttp(createServer: () => McpServer, config: GSEPMcpConfig) {
   const app = Fastify({ logger: config.logLevel === 'debug' });
 
@@ -14,6 +45,26 @@ export async function startHttp(createServer: () => McpServer, config: GSEPMcpCo
   const sessions = new Map<string, StreamableHTTPServerTransport>();
 
   app.all('/mcp', async (req, reply) => {
+    // Extract API key from query param
+    const url = new URL(req.url, 'http://localhost');
+    const key = url.searchParams.get('key') ?? '';
+
+    // Validate key
+    const auth = await validateKey(key);
+    if (!auth.valid) {
+      reply.code(401).send({
+        jsonrpc: '2.0',
+        error: {
+          code: -32001,
+          message: key
+            ? 'Invalid API key. Get yours at gsepcore.com/connect'
+            : 'API key required. Get yours at gsepcore.com/connect',
+        },
+        id: null,
+      });
+      return;
+    }
+
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
     // Existing session — reuse transport
@@ -41,7 +92,7 @@ export async function startHttp(createServer: () => McpServer, config: GSEPMcpCo
       onsessioninitialized: (id) => {
         sessions.set(id, transport);
         if (config.logLevel !== 'silent') {
-          console.error(`[GSEP-MCP] Session started: ${id}`);
+          console.error(`[GSEP-MCP] Session started: ${id} (user: ${auth.email}, plan: ${auth.plan})`);
         }
       },
     });
@@ -50,9 +101,6 @@ export async function startHttp(createServer: () => McpServer, config: GSEPMcpCo
       const id = (transport as any).sessionId;
       if (id) {
         sessions.delete(id);
-        if (config.logLevel !== 'silent') {
-          console.error(`[GSEP-MCP] Session closed: ${id}`);
-        }
       }
     };
 
@@ -67,7 +115,7 @@ export async function startHttp(createServer: () => McpServer, config: GSEPMcpCo
   app.get('/health', async () => ({
     status: 'ok',
     server: 'gsep-mcp',
-    version: '1.0.5',
+    version: '1.0.6',
     sessions: sessions.size,
     tools: ['gsep_chat', 'gsep_scan_input', 'gsep_scan_output', 'gsep_scan_actions', 'gsep_get_status', 'gsep_record_feedback'],
     provider: config.llmProvider,
@@ -81,6 +129,7 @@ export async function startHttp(createServer: () => McpServer, config: GSEPMcpCo
     console.error(`[GSEP-MCP] MCP endpoint: http://${config.httpHost}:${config.httpPort}/mcp`);
     console.error(`[GSEP-MCP] Health check: http://${config.httpHost}:${config.httpPort}/health`);
     console.error(`[GSEP-MCP] Provider: ${config.llmProvider} | Preset: ${config.preset}`);
+    console.error(`[GSEP-MCP] Key validation: enabled`);
   }
 
   process.on('SIGINT', async () => {
