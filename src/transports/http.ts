@@ -4,6 +4,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { GSEPMcpConfig } from '../config.js';
+import { registerGatewayRoutes } from './gateway.js';
 
 // In-memory cache to avoid calling the Worker on every request
 const keyCache = new Map<string, { valid: boolean; email?: string; plan?: string; cachedAt: number }>();
@@ -71,6 +72,10 @@ export async function buildHttpApp(createServer: () => McpServer, config: GSEPMc
   const app = Fastify({ logger: config.logLevel === 'debug' });
 
   await app.register(cors, { origin: true });
+
+  if (config.gatewayEnabled) {
+    registerGatewayRoutes(app, config);
+  }
 
   // Session map — one transport per session, persisted across requests
   const sessions = new Map<string, StreamableHTTPServerTransport>();
@@ -149,7 +154,7 @@ export async function buildHttpApp(createServer: () => McpServer, config: GSEPMc
   app.get('/health', async () => ({
     status: 'ok',
     server: 'gsep-mcp',
-    version: '1.0.7',
+    version: '1.0.8',
     sessions: sessions.size,
     tools: [
       'gsep_chat',
@@ -165,6 +170,8 @@ export async function buildHttpApp(createServer: () => McpServer, config: GSEPMc
     ],
     provider: config.llmProvider,
     preset: config.preset,
+    gateway_enabled: config.gatewayEnabled,
+    gateway_auth_required: config.gatewayAuthRequired,
     auth_required: config.httpAuthRequired,
     auth_fail_open: config.httpAuthFailOpen,
   }));
@@ -181,6 +188,9 @@ export async function startHttp(createServer: () => McpServer, config: GSEPMcpCo
     console.error(`[GSEP-MCP] HTTP transport started on http://${config.httpHost}:${config.httpPort}`);
     console.error(`[GSEP-MCP] MCP endpoint: http://${config.httpHost}:${config.httpPort}/mcp`);
     console.error(`[GSEP-MCP] Health check: http://${config.httpHost}:${config.httpPort}/health`);
+    if (config.gatewayEnabled) {
+      console.error(`[GSEP-MCP] OpenAI-compatible gateway: http://${config.httpHost}:${config.httpPort}/v1/chat/completions`);
+    }
     console.error(`[GSEP-MCP] Provider: ${config.llmProvider} | Preset: ${config.preset}`);
     console.error(`[GSEP-MCP] Key validation: ${config.httpAuthRequired ? 'enabled' : 'disabled'} | fail-open: ${config.httpAuthFailOpen}`);
   }

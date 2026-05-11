@@ -12,6 +12,8 @@ export interface GSEPMcpConfig {
   httpAuthRequired: boolean;
   httpAuthFailOpen: boolean;
   keyValidationUrl: string;
+  gatewayEnabled: boolean;
+  gatewayAuthRequired: boolean;
   preset: 'minimal' | 'standard' | 'conscious' | 'full';
   logLevel: 'silent' | 'info' | 'debug';
 }
@@ -27,6 +29,8 @@ export function loadConfig(): GSEPMcpConfig {
     httpAuthRequired: parseBoolean(process.env.GSEP_HTTP_AUTH_REQUIRED, true),
     httpAuthFailOpen: parseBoolean(process.env.GSEP_HTTP_AUTH_FAIL_OPEN, false),
     keyValidationUrl: process.env.GSEP_KEY_VALIDATION_URL ?? 'https://gsep-mcp-api.luiggistattoo.workers.dev/validate',
+    gatewayEnabled: parseBoolean(process.env.GSEP_GATEWAY_ENABLED, true),
+    gatewayAuthRequired: parseBoolean(process.env.GSEP_GATEWAY_AUTH_REQUIRED, parseBoolean(process.env.GSEP_HTTP_AUTH_REQUIRED, true)),
     preset: (process.env.GSEP_PRESET as GSEPMcpConfig['preset']) ?? 'full',
     logLevel: (process.env.GSEP_LOG_LEVEL as GSEPMcpConfig['logLevel']) ?? 'info',
   };

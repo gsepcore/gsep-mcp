@@ -168,10 +168,39 @@ HTTP mode runs GSEP-MCP as a standalone server. Use this when your agent lives i
 ```bash
 ANTHROPIC_API_KEY=sk-ant-... npx @gsep/mcp --http
 # MCP endpoint:  http://localhost:3100/mcp
+# OpenAI gateway: http://localhost:3100/v1/chat/completions
 # Health check:  http://localhost:3100/health
 ```
 
 > **Session model (v1.0.3+):** Send `initialize` first — the server returns an `mcp-session-id` header. Include that header in all subsequent requests. Do not open a new connection per call.
+
+#### OpenAI-Compatible Gateway
+
+Gateway Mode lets existing OpenAI-compatible apps adopt GSEP by changing their `baseURL`.
+The server uses the LLM provider configured in its environment, then wraps every request in
+GSEP protection and evolution.
+
+```typescript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  apiKey: process.env.GSEP_GATEWAY_KEY,
+  baseURL: 'http://localhost:3100/v1',
+});
+
+const completion = await client.chat.completions.create({
+  model: 'gpt-4o-mini',
+  messages: [{ role: 'user', content: 'Refactor this repo safely.' }],
+});
+```
+
+Supported endpoints:
+- `GET /v1/models`
+- `POST /v1/chat/completions`
+- `POST /v1/responses`
+
+Streaming is intentionally rejected for now; use non-streaming calls until the streaming safety
+pipeline is implemented.
 
 #### n8n
 
@@ -503,6 +532,8 @@ Signal satisfaction/dissatisfaction to drive evolution.
 | `GSEP_HTTP_AUTH_REQUIRED` | Require API key validation for HTTP transport | `true` |
 | `GSEP_HTTP_AUTH_FAIL_OPEN` | Allow requests if validation service is unreachable | `false` |
 | `GSEP_KEY_VALIDATION_URL` | API key validation endpoint | GSEP Cloud validator |
+| `GSEP_GATEWAY_ENABLED` | Enable OpenAI-compatible `/v1` gateway in HTTP mode | `true` |
+| `GSEP_GATEWAY_AUTH_REQUIRED` | Require API key validation for gateway requests | follows `GSEP_HTTP_AUTH_REQUIRED` |
 | `GSEP_STORAGE_PATH` | Genome persistence path | `~/.gsep-mcp` |
 | `GSEP_LOG_LEVEL` | `silent` / `info` / `debug` | `info` |
 | `GSEP_TRANSPORT` | `stdio` or `http` | `stdio` |
@@ -543,6 +574,10 @@ MIT License — © 2026 Luis Alfredo Velasquez Duran
 ---
 
 ## Changelog
+
+### v1.0.8
+- **feat(gateway):** Add OpenAI-compatible Gateway Mode with `/v1/models`, `/v1/chat/completions`, and `/v1/responses`.
+- **feat(gateway):** Add gateway auth controls and explicit non-streaming contract for the first gateway release.
 
 ### v1.0.7
 - **feat(middleware):** Add universal middleware hooks: `gsep_before_llm`, `gsep_after_llm`, `gsep_before_tool`, and `gsep_after_tool`.

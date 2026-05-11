@@ -19,7 +19,7 @@ import {
 export function createMcpServer(config: GSEPMcpConfig): McpServer {
   const server = new McpServer({
     name: 'gsep-mcp',
-    version: '1.0.7',
+    version: '1.0.8',
   });
 
   // gsep_chat — Full 32-step pipeline (C3 → LLM → C4 → C5 → fitness → evolution)

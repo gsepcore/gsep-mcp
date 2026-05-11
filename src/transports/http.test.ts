@@ -11,6 +11,8 @@ const baseConfig: GSEPMcpConfig = {
   httpAuthRequired: true,
   httpAuthFailOpen: false,
   keyValidationUrl: 'https://validator.example/validate',
+  gatewayEnabled: true,
+  gatewayAuthRequired: true,
   preset: 'full',
   logLevel: 'silent',
 };
