@@ -21,7 +21,7 @@
 
 | Metric | Value |
 |--------|-------|
-| MCP Tools | **6** |
+| MCP Tools | **10** |
 | Prompt injection patterns (C3) | **53** |
 | Destructive action patterns (C5) | **80+** |
 | Behavioral immune checks (C4) | **6** |
@@ -430,6 +430,34 @@ Use this as your primary chat tool. Returns the protected response + GSEP status
 }
 ```
 
+### `gsep_before_llm`
+**Middleware pre-hook** — sanitize input and assemble the protected prompt before an external agent calls its own LLM.
+
+```json
+{ "genome_id": "my-assistant", "message": "Summarize this email", "user_id": "user-123" }
+```
+
+### `gsep_after_llm`
+**Middleware post-hook** — verify an external LLM response before showing it to users or tools.
+
+```json
+{ "genome_id": "my-assistant", "user_message": "Summarize this email", "response": "..." }
+```
+
+### `gsep_before_tool`
+**Tool execution pre-hook** — block dangerous shell, database, filesystem, or API actions before execution.
+
+```json
+{ "tool_name": "shell", "command": "rm -rf /" }
+```
+
+### `gsep_after_tool`
+**Tool result post-hook** — treat tool output as untrusted external content before reinjecting it into the agent.
+
+```json
+{ "genome_id": "my-assistant", "tool_name": "web_fetch", "tool_result": "..." }
+```
+
 ### `gsep_get_status`
 Genome health, fitness scores, drift detection, evolution generation.
 
@@ -515,6 +543,10 @@ MIT License — © 2026 Luis Alfredo Velasquez Duran
 ---
 
 ## Changelog
+
+### v1.0.7
+- **feat(middleware):** Add universal middleware hooks: `gsep_before_llm`, `gsep_after_llm`, `gsep_before_tool`, and `gsep_after_tool`.
+- **fix(docker):** Build Docker image from the current repository source instead of installing a previously published npm version.
 
 ### v1.0.3
 - **fix(http):** Persist session transport across requests — fixes tool call timeout in HTTP mode. Previously a new `StreamableHTTPServerTransport` was created per request, destroying session state. Now uses a sessions Map keyed by `mcp-session-id`.

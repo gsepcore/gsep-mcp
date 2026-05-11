@@ -9,7 +9,7 @@ export async function startStdio(server: McpServer, config: GSEPMcpConfig) {
   if (config.logLevel !== 'silent') {
     console.error('[GSEP-MCP] stdio transport started');
     console.error(`[GSEP-MCP] Provider: ${config.llmProvider} | Preset: ${config.preset}`);
-    console.error('[GSEP-MCP] Tools: gsep_chat, gsep_scan_input, gsep_scan_output, gsep_scan_actions, gsep_get_status, gsep_record_feedback');
+    console.error('[GSEP-MCP] Tools: gsep_chat, gsep_scan_input, gsep_scan_output, gsep_scan_actions, gsep_before_llm, gsep_after_llm, gsep_before_tool, gsep_after_tool, gsep_get_status, gsep_record_feedback');
   }
 
   // Keep process alive

@@ -5,11 +5,21 @@ import { chatSchema, chatHandler } from './tools/chatTool.js';
 import { scanInputSchema, scanInputHandler, scanOutputSchema, scanOutputHandler, scanActionsSchema, scanActionsHandler } from './tools/scanTools.js';
 import { statusSchema, statusHandler } from './tools/statusTool.js';
 import { feedbackSchema, feedbackHandler } from './tools/feedbackTool.js';
+import {
+  afterLlmHandler,
+  afterLlmSchema,
+  afterToolHandler,
+  afterToolSchema,
+  beforeLlmHandler,
+  beforeLlmSchema,
+  beforeToolHandler,
+  beforeToolSchema,
+} from './tools/middlewareTools.js';
 
 export function createMcpServer(config: GSEPMcpConfig): McpServer {
   const server = new McpServer({
     name: 'gsep-mcp',
-    version: '1.0.0',
+    version: '1.0.7',
   });
 
   // gsep_chat — Full 32-step pipeline (C3 → LLM → C4 → C5 → fitness → evolution)
@@ -42,6 +52,38 @@ export function createMcpServer(config: GSEPMcpConfig): McpServer {
     'Scan LLM response for dangerous or destructive actions with C5 Action Firewall (80+ patterns). Classifies actions as safe/caution/destructive/critical. Permanently blocks rm -rf, DROP DATABASE, disk wipes, etc.',
     scanActionsSchema,
     (args) => scanActionsHandler(args as any, config)
+  );
+
+  // gsep_before_llm — middleware hook before any external LLM call
+  server.tool(
+    'gsep_before_llm',
+    'Middleware hook to run before any agent calls an LLM. Returns enhanced_prompt, sanitized_message, and C3/security status. Use this when GSEP-MCP protects an existing external agent rather than owning the LLM call.',
+    beforeLlmSchema,
+    (args) => beforeLlmHandler(args as any, config)
+  );
+
+  // gsep_after_llm — middleware hook after any external LLM call
+  server.tool(
+    'gsep_after_llm',
+    'Middleware hook to run after an external LLM responds. Runs C4 behavioral immune checks, records fitness, and returns safe_response before content is shown to users or tools.',
+    afterLlmSchema,
+    (args) => afterLlmHandler(args as any, config)
+  );
+
+  // gsep_before_tool — middleware hook before executing tools/actions
+  server.tool(
+    'gsep_before_tool',
+    'Middleware hook to run before an agent executes a tool, shell command, database query, filesystem action, or API call. Uses C5 Action Firewall to block destructive actions before execution.',
+    beforeToolSchema,
+    (args) => beforeToolHandler(args as any)
+  );
+
+  // gsep_after_tool — middleware hook after external tool output
+  server.tool(
+    'gsep_after_tool',
+    'Middleware hook to run after a tool returns external content and before that content is fed back into an agent/LLM. Scans for prompt injection and dangerous action instructions.',
+    afterToolSchema,
+    (args) => afterToolHandler(args as any, config)
   );
 
   // gsep_get_status — Genome health, fitness, evolution stats
