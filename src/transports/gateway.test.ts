@@ -20,6 +20,11 @@ const config: GSEPMcpConfig = {
   keyValidationUrl: 'https://validator.example/validate',
   gatewayEnabled: true,
   gatewayAuthRequired: false,
+  sessionTtlMs: 30 * 60 * 1000,
+  sessionCleanupIntervalMs: 60 * 1000,
+  maxSessions: 500,
+  genomeTtlMs: 60 * 60 * 1000,
+  maxGenomes: 100,
   preset: 'full',
   logLevel: 'silent',
 };

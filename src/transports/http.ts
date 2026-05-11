@@ -4,6 +4,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { GSEPMcpConfig } from '../config.js';
+import { getGenomeCacheStats, pruneGenomeCache } from '../genomeManager.js';
 import { registerGatewayRoutes } from './gateway.js';
 
 // In-memory cache to avoid calling the Worker on every request
@@ -68,6 +69,34 @@ export function extractApiKey(req: { url: string; headers: Record<string, string
   return '';
 }
 
+export interface HttpSessionEntry {
+  transport: StreamableHTTPServerTransport;
+  createdAt: number;
+  lastSeenAt: number;
+}
+
+export async function cleanupExpiredSessions(
+  sessions: Map<string, HttpSessionEntry>,
+  config: Pick<GSEPMcpConfig, 'sessionTtlMs'>,
+  now = Date.now()
+): Promise<number> {
+  let removed = 0;
+
+  for (const [id, entry] of sessions.entries()) {
+    if (now - entry.lastSeenAt > config.sessionTtlMs) {
+      sessions.delete(id);
+      removed++;
+      try {
+        await entry.transport.close();
+      } catch {
+        // Best effort: expired sessions should not break request handling.
+      }
+    }
+  }
+
+  return removed;
+}
+
 export async function buildHttpApp(createServer: () => McpServer, config: GSEPMcpConfig) {
   const app = Fastify({ logger: config.logLevel === 'debug' });
 
@@ -78,11 +107,23 @@ export async function buildHttpApp(createServer: () => McpServer, config: GSEPMc
   }
 
   // Session map — one transport per session, persisted across requests
-  const sessions = new Map<string, StreamableHTTPServerTransport>();
+  const sessions = new Map<string, HttpSessionEntry>();
+
+  const cleanupTimer = setInterval(() => {
+    void cleanupExpiredSessions(sessions, config);
+    pruneGenomeCache(config);
+  }, config.sessionCleanupIntervalMs);
+  cleanupTimer.unref?.();
+
+  app.addHook('onClose', async () => {
+    clearInterval(cleanupTimer);
+  });
 
   app.all('/mcp', async (req, reply) => {
     // P2: request ID for tracing
     reply.header('x-request-id', crypto.randomUUID());
+    await cleanupExpiredSessions(sessions, config);
+    pruneGenomeCache(config);
 
     const key = extractApiKey({ url: req.url, headers: req.headers });
 
@@ -111,19 +152,33 @@ export async function buildHttpApp(createServer: () => McpServer, config: GSEPMc
 
     // Existing session — reuse transport
     if (sessionId && sessions.has(sessionId)) {
-      const transport = sessions.get(sessionId)!;
+      const entry = sessions.get(sessionId)!;
+      entry.lastSeenAt = Date.now();
       reply.hijack();
-      await transport.handleRequest(req.raw, reply.raw, req.body);
+      await entry.transport.handleRequest(req.raw, reply.raw, req.body);
       return;
     }
 
     // New session — only allow on initialize request
     const body = req.body as any;
+    const requestId = body?.id ?? null;
     if (!isInitializeRequest(body)) {
       reply.code(400).send({
         jsonrpc: '2.0',
         error: { code: -32600, message: 'Must initialize before sending other requests' },
-        id: body?.id ?? null,
+        id: requestId,
+      });
+      return;
+    }
+
+    if (sessions.size >= config.maxSessions) {
+      reply.code(503).send({
+        jsonrpc: '2.0',
+        error: {
+          code: -32002,
+          message: `Too many active MCP sessions. Limit is ${config.maxSessions}.`,
+        },
+        id: requestId,
       });
       return;
     }
@@ -132,7 +187,12 @@ export async function buildHttpApp(createServer: () => McpServer, config: GSEPMc
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => crypto.randomUUID(),
       onsessioninitialized: (id) => {
-        sessions.set(id, transport);
+        const now = Date.now();
+        sessions.set(id, {
+          transport,
+          createdAt: now,
+          lastSeenAt: now,
+        });
         if (config.logLevel !== 'silent') {
           console.error(`[GSEP-MCP] Session started: ${id} (user: ${auth.email}, plan: ${auth.plan})`);
         }
@@ -156,21 +216,34 @@ export async function buildHttpApp(createServer: () => McpServer, config: GSEPMc
   // P2: Readiness probe — 200 when LLM is configured, 503 when degraded
   app.get('/ready', async (_req, reply) => {
     const llmOk = config.llmProvider !== 'none';
+    const genomeStats = getGenomeCacheStats(config);
     reply.code(llmOk ? 200 : 503).send({
       status: llmOk ? 'ready' : 'degraded',
       checks: {
         server: 'ok',
         llm: llmOk ? 'ok' : 'no_provider_configured',
+        sessions: sessions.size <= config.maxSessions ? 'ok' : 'over_limit',
+        genomes: genomeStats.activeGenomes <= config.maxGenomes ? 'ok' : 'over_limit',
       },
     });
   });
 
   // P2: Prometheus-compatible metrics
   app.get('/metrics', async (_req, reply) => {
+    const genomeStats = getGenomeCacheStats(config);
     const lines = [
       '# HELP gsep_active_sessions Current active MCP sessions',
       '# TYPE gsep_active_sessions gauge',
       `gsep_active_sessions ${sessions.size}`,
+      '# HELP gsep_max_sessions Configured maximum active MCP sessions',
+      '# TYPE gsep_max_sessions gauge',
+      `gsep_max_sessions ${config.maxSessions}`,
+      '# HELP gsep_active_genomes Current active cached genomes',
+      '# TYPE gsep_active_genomes gauge',
+      `gsep_active_genomes ${genomeStats.activeGenomes}`,
+      '# HELP gsep_max_genomes Configured maximum cached genomes',
+      '# TYPE gsep_max_genomes gauge',
+      `gsep_max_genomes ${config.maxGenomes}`,
     ];
     reply.header('content-type', 'text/plain; version=0.0.4').send(lines.join('\n') + '\n');
   });
@@ -179,8 +252,14 @@ export async function buildHttpApp(createServer: () => McpServer, config: GSEPMc
   app.get('/health', async () => ({
     status: 'ok',
     server: 'gsep-mcp',
-    version: '1.0.8',
+    version: '1.0.9',
     sessions: sessions.size,
+    max_sessions: config.maxSessions,
+    session_ttl_ms: config.sessionTtlMs,
+    session_cleanup_interval_ms: config.sessionCleanupIntervalMs,
+    genomes: getGenomeCacheStats(config).activeGenomes,
+    max_genomes: config.maxGenomes,
+    genome_ttl_ms: config.genomeTtlMs,
     tools: [
       'gsep_chat',
       'gsep_scan_input',
@@ -223,8 +302,8 @@ export async function startHttp(createServer: () => McpServer, config: GSEPMcpCo
   }
 
   process.on('SIGINT', async () => {
-    for (const transport of sessions.values()) {
-      await transport.close();
+    for (const entry of sessions.values()) {
+      await entry.transport.close();
     }
     await app.close();
     process.exit(0);

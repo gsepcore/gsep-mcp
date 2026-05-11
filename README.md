@@ -534,6 +534,11 @@ Signal satisfaction/dissatisfaction to drive evolution.
 | `GSEP_KEY_VALIDATION_URL` | API key validation endpoint | GSEP Cloud validator |
 | `GSEP_GATEWAY_ENABLED` | Enable OpenAI-compatible `/v1` gateway in HTTP mode | `true` |
 | `GSEP_GATEWAY_AUTH_REQUIRED` | Require API key validation for gateway requests | follows `GSEP_HTTP_AUTH_REQUIRED` |
+| `GSEP_SESSION_TTL_MS` | Expire idle HTTP MCP sessions after this many milliseconds | `1800000` |
+| `GSEP_SESSION_CLEANUP_INTERVAL_MS` | Cleanup interval for expired sessions and genomes | `60000` |
+| `GSEP_MAX_SESSIONS` | Maximum active HTTP MCP sessions | `500` |
+| `GSEP_GENOME_TTL_MS` | Expire idle cached genomes after this many milliseconds | `3600000` |
+| `GSEP_MAX_GENOMES` | Maximum cached genomes before LRU eviction | `100` |
 | `GSEP_STORAGE_PATH` | Genome persistence path | `~/.gsep-mcp` |
 | `GSEP_LOG_LEVEL` | `silent` / `info` / `debug` | `info` |
 | `GSEP_TRANSPORT` | `stdio` or `http` | `stdio` |
@@ -574,6 +579,10 @@ MIT License — © 2026 Luis Alfredo Velasquez Duran
 ---
 
 ## Changelog
+
+### v1.0.9
+- **feat(resources):** Add session TTL, max session limits, periodic cleanup, genome TTL/LRU cache, and resource metrics.
+- **fix(resources):** Disable dashboard auto-start for MCP-created genomes to avoid accidental local port usage.
 
 ### v1.0.8
 - **feat(gateway):** Add OpenAI-compatible Gateway Mode with `/v1/models`, `/v1/chat/completions`, and `/v1/responses`.

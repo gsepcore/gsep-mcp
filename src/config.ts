@@ -14,6 +14,11 @@ export interface GSEPMcpConfig {
   keyValidationUrl: string;
   gatewayEnabled: boolean;
   gatewayAuthRequired: boolean;
+  sessionTtlMs: number;
+  sessionCleanupIntervalMs: number;
+  maxSessions: number;
+  genomeTtlMs: number;
+  maxGenomes: number;
   preset: 'minimal' | 'standard' | 'conscious' | 'full';
   logLevel: 'silent' | 'info' | 'debug';
 }
@@ -31,6 +36,11 @@ export function loadConfig(): GSEPMcpConfig {
     keyValidationUrl: process.env.GSEP_KEY_VALIDATION_URL ?? 'https://gsep-mcp-api.luiggistattoo.workers.dev/validate',
     gatewayEnabled: parseBoolean(process.env.GSEP_GATEWAY_ENABLED, true),
     gatewayAuthRequired: parseBoolean(process.env.GSEP_GATEWAY_AUTH_REQUIRED, parseBoolean(process.env.GSEP_HTTP_AUTH_REQUIRED, true)),
+    sessionTtlMs: parsePositiveInt(process.env.GSEP_SESSION_TTL_MS, 30 * 60 * 1000),
+    sessionCleanupIntervalMs: parsePositiveInt(process.env.GSEP_SESSION_CLEANUP_INTERVAL_MS, 60 * 1000),
+    maxSessions: parsePositiveInt(process.env.GSEP_MAX_SESSIONS, 500),
+    genomeTtlMs: parsePositiveInt(process.env.GSEP_GENOME_TTL_MS, 60 * 60 * 1000),
+    maxGenomes: parsePositiveInt(process.env.GSEP_MAX_GENOMES, 100),
     preset: (process.env.GSEP_PRESET as GSEPMcpConfig['preset']) ?? 'full',
     logLevel: (process.env.GSEP_LOG_LEVEL as GSEPMcpConfig['logLevel']) ?? 'info',
   };
@@ -39,6 +49,12 @@ export function loadConfig(): GSEPMcpConfig {
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function detectProvider(): GSEPMcpConfig['llmProvider'] {
