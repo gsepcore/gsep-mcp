@@ -38,6 +38,8 @@
     "test": "vitest run",
     "lint": "tsc --noEmit",
     "security": "npm audit --audit-level=high --omit=dev",
+    "evals": "tsx evals/run-evals.ts",
+    "evals:live": "tsx evals/run-evals.ts --mode=live",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
