@@ -3,6 +3,6 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "sh -c 'GSEP_HTTP_PORT=${PORT} gsep-mcp --http'"
+startCommand = "sh -c 'GSEP_HTTP_PORT=${PORT:-3100} node dist/index.js --http'"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
