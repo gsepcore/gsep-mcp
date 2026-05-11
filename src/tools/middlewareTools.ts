@@ -28,7 +28,7 @@ export async function beforeLlmHandler(
     blocked: result.blocked,
     safe: !result.blocked,
     block_reason: result.blockReason ?? null,
-    threats: result.threats ?? [],
+    threats: (result as any).threats ?? [],
     sanitized_message: result.sanitizedMessage,
     enhanced_prompt: result.prompt,
     recommendation: result.blocked
@@ -142,7 +142,7 @@ export async function afterToolHandler(
     tool_name: args.tool_name,
     safe: !blocked,
     blocked,
-    prompt_injection_threats: scan.threats ?? [],
+    prompt_injection_threats: (scan as any).threats ?? [],
     action_threats: dangerousActions.map(a => ({
       action: a.action,
       risk: a.risk,

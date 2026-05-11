@@ -81,6 +81,9 @@ export async function buildHttpApp(createServer: () => McpServer, config: GSEPMc
   const sessions = new Map<string, StreamableHTTPServerTransport>();
 
   app.all('/mcp', async (req, reply) => {
+    // P2: request ID for tracing
+    reply.header('x-request-id', crypto.randomUUID());
+
     const key = extractApiKey({ url: req.url, headers: req.headers });
 
     const auth = config.httpAuthRequired
@@ -150,6 +153,28 @@ export async function buildHttpApp(createServer: () => McpServer, config: GSEPMc
     await transport.handleRequest(req.raw, reply.raw, req.body);
   });
 
+  // P2: Readiness probe — 200 when LLM is configured, 503 when degraded
+  app.get('/ready', async (_req, reply) => {
+    const llmOk = config.llmProvider !== 'none';
+    reply.code(llmOk ? 200 : 503).send({
+      status: llmOk ? 'ready' : 'degraded',
+      checks: {
+        server: 'ok',
+        llm: llmOk ? 'ok' : 'no_provider_configured',
+      },
+    });
+  });
+
+  // P2: Prometheus-compatible metrics
+  app.get('/metrics', async (_req, reply) => {
+    const lines = [
+      '# HELP gsep_active_sessions Current active MCP sessions',
+      '# TYPE gsep_active_sessions gauge',
+      `gsep_active_sessions ${sessions.size}`,
+    ];
+    reply.header('content-type', 'text/plain; version=0.0.4').send(lines.join('\n') + '\n');
+  });
+
   // Health check
   app.get('/health', async () => ({
     status: 'ok',
@@ -188,6 +213,8 @@ export async function startHttp(createServer: () => McpServer, config: GSEPMcpCo
     console.error(`[GSEP-MCP] HTTP transport started on http://${config.httpHost}:${config.httpPort}`);
     console.error(`[GSEP-MCP] MCP endpoint: http://${config.httpHost}:${config.httpPort}/mcp`);
     console.error(`[GSEP-MCP] Health check: http://${config.httpHost}:${config.httpPort}/health`);
+    console.error(`[GSEP-MCP] Readiness:    http://${config.httpHost}:${config.httpPort}/ready`);
+    console.error(`[GSEP-MCP] Metrics:      http://${config.httpHost}:${config.httpPort}/metrics`);
     if (config.gatewayEnabled) {
       console.error(`[GSEP-MCP] OpenAI-compatible gateway: http://${config.httpHost}:${config.httpPort}/v1/chat/completions`);
     }
