@@ -6,12 +6,12 @@
     "url": "https://github.com/gsepcore/gsep-mcp",
     "source": "github"
   },
-  "version": "1.0.0",
+  "version": "1.0.6",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@gsep/mcp",
-      "version": "1.0.2",
+      "version": "1.0.6",
       "transport": {
         "type": "stdio"
       },
@@ -40,6 +40,20 @@
         {
           "name": "GSEP_PRESET",
           "description": "Intelligence preset: minimal, standard, conscious, or full (default: full)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "GSEP_HTTP_AUTH_REQUIRED",
+          "description": "Require API key validation for HTTP transport (default: true)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "GSEP_HTTP_AUTH_FAIL_OPEN",
+          "description": "Allow HTTP requests if validation service is unreachable (default: false)",
           "isRequired": false,
           "isSecret": false,
           "format": "string"

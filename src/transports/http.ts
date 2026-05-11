@@ -5,13 +5,19 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { GSEPMcpConfig } from '../config.js';
 
-const VALIDATE_URL = 'https://gsep-mcp-api.luiggistattoo.workers.dev/validate';
-
 // In-memory cache to avoid calling the Worker on every request
-const keyCache = new Map<string, { valid: boolean; email: string; plan: string; cachedAt: number }>();
+const keyCache = new Map<string, { valid: boolean; email?: string; plan?: string; cachedAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-async function validateKey(key: string): Promise<{ valid: boolean; email?: string; plan?: string }> {
+export interface AuthValidationOptions {
+  validationUrl: string;
+  failOpen: boolean;
+}
+
+export async function validateKey(
+  key: string,
+  options: AuthValidationOptions
+): Promise<{ valid: boolean; email?: string; plan?: string }> {
   if (!key) return { valid: false };
 
   // Check cache first
@@ -21,7 +27,7 @@ async function validateKey(key: string): Promise<{ valid: boolean; email?: strin
   }
 
   try {
-    const res = await fetch(`${VALIDATE_URL}?key=${encodeURIComponent(key)}`);
+    const res = await fetch(`${options.validationUrl}?key=${encodeURIComponent(key)}`);
     const data = await res.json() as any;
 
     if (data.valid) {
@@ -30,13 +36,38 @@ async function validateKey(key: string): Promise<{ valid: boolean; email?: strin
 
     return data;
   } catch {
-    // If validation service is down, fail open (let request through) to avoid outage
-    console.error('[GSEP-MCP] Warning: key validation service unreachable — allowing request');
-    return { valid: true };
+    if (options.failOpen) {
+      console.error('[GSEP-MCP] Warning: key validation service unreachable — allowing request because GSEP_HTTP_AUTH_FAIL_OPEN=true');
+      return { valid: true };
+    }
+
+    console.error('[GSEP-MCP] Warning: key validation service unreachable — rejecting request');
+    return { valid: false };
   }
 }
 
-export async function startHttp(createServer: () => McpServer, config: GSEPMcpConfig) {
+export function clearAuthCache() {
+  keyCache.clear();
+}
+
+export function extractApiKey(req: { url: string; headers: Record<string, string | string[] | undefined> }): string {
+  const url = new URL(req.url, 'http://localhost');
+  const queryKey = url.searchParams.get('key');
+  if (queryKey) return queryKey;
+
+  const headerKey = req.headers['x-gsep-api-key'];
+  if (typeof headerKey === 'string' && headerKey.trim()) return headerKey.trim();
+
+  const authorization = req.headers.authorization;
+  if (typeof authorization === 'string') {
+    const match = authorization.match(/^Bearer\s+(.+)$/i);
+    if (match?.[1]) return match[1].trim();
+  }
+
+  return '';
+}
+
+export async function buildHttpApp(createServer: () => McpServer, config: GSEPMcpConfig) {
   const app = Fastify({ logger: config.logLevel === 'debug' });
 
   await app.register(cors, { origin: true });
@@ -45,12 +76,15 @@ export async function startHttp(createServer: () => McpServer, config: GSEPMcpCo
   const sessions = new Map<string, StreamableHTTPServerTransport>();
 
   app.all('/mcp', async (req, reply) => {
-    // Extract API key from query param
-    const url = new URL(req.url, 'http://localhost');
-    const key = url.searchParams.get('key') ?? '';
+    const key = extractApiKey({ url: req.url, headers: req.headers });
 
-    // Validate key
-    const auth = await validateKey(key);
+    const auth = config.httpAuthRequired
+      ? await validateKey(key, {
+        validationUrl: config.keyValidationUrl,
+        failOpen: config.httpAuthFailOpen,
+      })
+      : { valid: true };
+
     if (!auth.valid) {
       reply.code(401).send({
         jsonrpc: '2.0',
@@ -120,7 +154,15 @@ export async function startHttp(createServer: () => McpServer, config: GSEPMcpCo
     tools: ['gsep_chat', 'gsep_scan_input', 'gsep_scan_output', 'gsep_scan_actions', 'gsep_get_status', 'gsep_record_feedback'],
     provider: config.llmProvider,
     preset: config.preset,
+    auth_required: config.httpAuthRequired,
+    auth_fail_open: config.httpAuthFailOpen,
   }));
+
+  return { app, sessions };
+}
+
+export async function startHttp(createServer: () => McpServer, config: GSEPMcpConfig) {
+  const { app, sessions } = await buildHttpApp(createServer, config);
 
   await app.listen({ port: config.httpPort, host: config.httpHost });
 
@@ -129,7 +171,7 @@ export async function startHttp(createServer: () => McpServer, config: GSEPMcpCo
     console.error(`[GSEP-MCP] MCP endpoint: http://${config.httpHost}:${config.httpPort}/mcp`);
     console.error(`[GSEP-MCP] Health check: http://${config.httpHost}:${config.httpPort}/health`);
     console.error(`[GSEP-MCP] Provider: ${config.llmProvider} | Preset: ${config.preset}`);
-    console.error(`[GSEP-MCP] Key validation: enabled`);
+    console.error(`[GSEP-MCP] Key validation: ${config.httpAuthRequired ? 'enabled' : 'disabled'} | fail-open: ${config.httpAuthFailOpen}`);
   }
 
   process.on('SIGINT', async () => {

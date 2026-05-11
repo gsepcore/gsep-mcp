@@ -9,6 +9,9 @@ export interface GSEPMcpConfig {
   storagePath: string;
   httpPort: number;
   httpHost: string;
+  httpAuthRequired: boolean;
+  httpAuthFailOpen: boolean;
+  keyValidationUrl: string;
   preset: 'minimal' | 'standard' | 'conscious' | 'full';
   logLevel: 'silent' | 'info' | 'debug';
 }
@@ -21,9 +24,17 @@ export function loadConfig(): GSEPMcpConfig {
     storagePath: process.env.GSEP_STORAGE_PATH ?? path.join(os.homedir(), '.gsep-mcp'),
     httpPort: parseInt(process.env.GSEP_HTTP_PORT ?? '3100', 10),
     httpHost: process.env.GSEP_HTTP_HOST ?? '0.0.0.0',
+    httpAuthRequired: parseBoolean(process.env.GSEP_HTTP_AUTH_REQUIRED, true),
+    httpAuthFailOpen: parseBoolean(process.env.GSEP_HTTP_AUTH_FAIL_OPEN, false),
+    keyValidationUrl: process.env.GSEP_KEY_VALIDATION_URL ?? 'https://gsep-mcp-api.luiggistattoo.workers.dev/validate',
     preset: (process.env.GSEP_PRESET as GSEPMcpConfig['preset']) ?? 'full',
     logLevel: (process.env.GSEP_LOG_LEVEL as GSEPMcpConfig['logLevel']) ?? 'info',
   };
+}
+
+function parseBoolean(value: string | undefined, fallback: boolean): boolean {
+  if (value === undefined) return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
 }
 
 function detectProvider(): GSEPMcpConfig['llmProvider'] {

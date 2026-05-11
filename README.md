@@ -472,6 +472,9 @@ Signal satisfaction/dissatisfaction to drive evolution.
 | `GSEP_PRESET` | `minimal` / `standard` / `conscious` / `full` | `full` |
 | `GSEP_HTTP_PORT` | HTTP server port | `3100` |
 | `GSEP_HTTP_HOST` | HTTP server host | `0.0.0.0` |
+| `GSEP_HTTP_AUTH_REQUIRED` | Require API key validation for HTTP transport | `true` |
+| `GSEP_HTTP_AUTH_FAIL_OPEN` | Allow requests if validation service is unreachable | `false` |
+| `GSEP_KEY_VALIDATION_URL` | API key validation endpoint | GSEP Cloud validator |
 | `GSEP_STORAGE_PATH` | Genome persistence path | `~/.gsep-mcp` |
 | `GSEP_LOG_LEVEL` | `silent` / `info` / `debug` | `info` |
 | `GSEP_TRANSPORT` | `stdio` or `http` | `stdio` |
