@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "gsep": {
+      "command": "npx",
+      "args": ["-y", "@gsep/mcp"],
+      "env": {
+        "OLLAMA_HOST": "http://localhost:11434",
+        "GSEP_PRESET": "full"
+      }
+    }
+  }
+}

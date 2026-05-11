@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "gsep": {
+      "command": "npx",
+      "args": ["-y", "@gsep/mcp"],
+      "env": {
+        "ANTHROPIC_API_KEY": "sk-ant-YOUR-KEY-HERE"
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "gsep-mcp-openai-gateway-example",
+  "version": "1.0.0",
+  "description": "OpenAI SDK + GSEP-MCP Gateway",
+  "main": "example.js",
+  "type": "module",
+  "scripts": {
+    "start": "node example.js"
+  },
+  "dependencies": {
+    "openai": "^4.0.0"
+  }
+}

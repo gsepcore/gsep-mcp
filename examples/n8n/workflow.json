@@ -1,0 +1,107 @@
+{
+  "name": "GSEP-MCP Chat",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "gsep-chat"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3100/mcp",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "mcp-session-id",
+              "value": "n8n-session"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "jsonrpc",
+              "value": "2.0"
+            },
+            {
+              "name": "id",
+              "value": 1
+            },
+            {
+              "name": "method",
+              "value": "tools/call"
+            },
+            {
+              "name": "params",
+              "value": {
+                "name": "gsep_chat",
+                "arguments": {
+                  "genome_id": "n8n-agent",
+                  "message": "={{ $json.body.message }}",
+                  "user_id": "={{ $json.body.userId }}",
+                  "api_key": "={{ $env.GSEP_API_KEY }}"
+                }
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "GSEP Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": {
+          "respondWith": "json",
+          "responseBody": "={{
+            $json.result.content[0].text
+          }}"
+        },
+        "options": {}
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [750, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[
+        {
+          "node": "GSEP Chat",
+          "type": "main",
+          "index": 0
+        }
+      ]]
+    },
+    "GSEP Chat": {
+      "main": [[
+        {
+          "node": "Respond",
+          "type": "main",
+          "index": 0
+        }
+      ]]
+    }
+  }
+}
